@@ -1,0 +1,10 @@
+markdown
+bs4
+python-dotenv
+pydantic
+pylatexenc
+langchain
+langchain-core
+langchain_community
+langchain-google-genai
+langgraph
