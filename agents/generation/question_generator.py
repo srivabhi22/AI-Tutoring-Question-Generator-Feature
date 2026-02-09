@@ -5,10 +5,13 @@ Based on everything decided so far, generate the actual questions and answers.
 
 # agents/generation/question_generator.py
 
+import logging
 from typing import Dict, Any
 from core.state import TutoringState, UserProfile, PlannerOutput, GroundedContext
-from preprocessing.json_utils import extract_json_from_llm
+from preprocessing.json_utils import extract_json_from_llm, JSONExtractionError
 from preprocessing.text_cleaner import clean_llm_json
+
+logger = logging.getLogger(__name__)
 
 
 def build_question_generator_prompt(
@@ -26,12 +29,12 @@ EXPECTED OUTPUT:
 {task["expected_output"]}
 
 ACADEMIC CONTEXT:
-Class: {planning_context["class"]}
-Board: {planning_context["board"]}
-Target Exam: {planning_context["target_exam"]}
-Subject: {planning_context["subject"]}
-Chapter: {planning_context["chapter"]}
-Sub-topic: {planning_context["sub_topic"]}
+Class: {planning_context.get("class", "")}
+Board: {planning_context.get("board", "")}
+Target Exam: {planning_context.get("target_exam", "")}
+Subject: {planning_context.get("subject", "")}
+Chapter: {planning_context.get("chapter", "")}
+Sub-topic: {planning_context.get("sub_topic", "")}
 
 KNOWLEDGE BASE:
 {knowledge_base}
@@ -45,11 +48,11 @@ RULES:
 - Do NOT invent topics
 
 OUTPUT FORMAT:
-{
+{{
   "mcq": [],
   "short_answer": [],
   "long_answer": []
-}
+}}
 """
 
 
@@ -62,9 +65,10 @@ def question_generator_agent(
     Generates final exam-aligned questions.
     """
 
-    planning_context = state["plan"]["planning_context"]
-    knowledge_base = state["knowledge_base"]
+    planning_context = state.plan.planning_context
+    knowledge_base = state.knowledge_base
 
+    logger.info("Running question generator")
     response = llm.invoke(
         build_question_generator_prompt(
             task,
@@ -73,7 +77,23 @@ def question_generator_agent(
         )
     )
 
-    parsed = extract_json_from_llm(response)
-    cleaned = clean_llm_json(parsed)
+    try:
+        parsed = extract_json_from_llm(response.content)
+        cleaned = clean_llm_json(parsed)
+    except JSONExtractionError as exc:
+        logger.warning("Question generator JSON parse failed: %s", exc)
+        cleaned = {"mcq": [], "short_answer": [], "long_answer": []}
 
-    return cleaned
+    if isinstance(cleaned, list):
+        cleaned = {
+            "mcq": cleaned,
+            "short_answer": [],
+            "long_answer": [],
+        }
+    elif not isinstance(cleaned, dict):
+        cleaned = {"mcq": [], "short_answer": [], "long_answer": []}
+
+    return {
+        "question_bank": cleaned,
+        "knowledge_base": {task["task_id"]: cleaned},
+    }

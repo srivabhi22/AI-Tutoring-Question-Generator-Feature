@@ -4,14 +4,13 @@ Given the generated questions, what are the correct, well-explained solutions?
 """
 
 
-from typing import Dict, Any, cast
-from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
+import logging
+from typing import Dict, Any
 from core.state import TutoringState, UserProfile, PlannerOutput, GroundedContext
-from tools.math_solver import python_math
-from preprocessing.json_utils import extract_json_from_llm
+from preprocessing.json_utils import extract_json_from_llm, JSONExtractionError
 from preprocessing.text_cleaner import clean_llm_json
 
+logger = logging.getLogger(__name__)
 
 def build_solver_instruction(
     planning_context: Dict[str, str],
@@ -21,10 +20,10 @@ def build_solver_instruction(
 You are a solution-writing agent.
 
 ACADEMIC CONTEXT:
-Class: {planning_context["class"]}
-Board: {planning_context["board"]}
-Target Exam: {planning_context["target_exam"]}
-Subject: {planning_context["subject"]}
+Class: {planning_context.get("class", "")}
+Board: {planning_context.get("board", "")}
+Target Exam: {planning_context.get("target_exam", "")}
+Subject: {planning_context.get("subject", "")}
 
 QUESTIONS:
 {question_bank}
@@ -55,28 +54,38 @@ def solver_agent(
     ReAct-based solver agent with math tool support.
     """
 
-    planning_context = state["plan"]["planning_context"]
-    question_bank = state["question_bank"]
+    planning_context = state.plan.planning_context
+    question_bank = state.question_bank
 
     solver_prompt = build_solver_instruction(
         planning_context,
         question_bank
     )
 
-    # Create ReAct agent (modern API)
-    react_solver = create_agent(
-        model=llm,
-        tools=[python_math]
-    )
+    logger.info("Running solver")
+    if llm is None or not hasattr(llm, "invoke"):
+        raise RuntimeError("LLM is not configured for solver agent")
 
-    # Invoke solver (ReAct agents expect 'input')
-    result = react_solver.invoke(
-        cast(Any, solver_prompt)
-    )
-    # Extract final message
-    final_output = result["messages"][-1].content
+    response = llm.invoke(solver_prompt)
+    content = response.content if hasattr(response, "content") else response
 
-    parsed = extract_json_from_llm(final_output)
-    cleaned = clean_llm_json(parsed)
+    try:
+        parsed = extract_json_from_llm(content)
+        cleaned = clean_llm_json(parsed)
+    except JSONExtractionError as exc:
+        logger.warning("Solver JSON parse failed: %s", exc)
+        cleaned = {"mcq": [], "short_answer": [], "long_answer": []}
 
-    return cleaned
+    if isinstance(cleaned, list):
+        cleaned = {
+            "mcq": cleaned,
+            "short_answer": [],
+            "long_answer": [],
+        }
+    elif not isinstance(cleaned, dict):
+        cleaned = {"mcq": [], "short_answer": [], "long_answer": []}
+
+    return {
+        "solver_output": cleaned,
+        "knowledge_base": {task["task_id"]: cleaned},
+    }

@@ -9,7 +9,11 @@ This file:
 
 # main.py
 
+import logging
+
 from core.graph import build_graph
+from core.logging_config import configure_logging
+from core.llm_loader import load_text_llm
 
 # -------------------------------------------------
 # LLM SETUP (example: Gemini / OpenAI / Claude)
@@ -19,19 +23,9 @@ from core.graph import build_graph
 # Replace this with the LLM you are actually using.
 
 
-import os
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from core.state import TutoringState, UserProfile
-# Load environment variables from .env
-load_dotenv()
+from core.state import TutoringState, UserProfile, ensure_state
 
-def load_text_llm():
-    return ChatGoogleGenerativeAI(
-        model=os.getenv("TEXT_LLM_MODEL_NAME"),
-        temperature=0,
-        google_api_key=os.getenv("GEMINI_API_KEY")
-    )
+logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------
@@ -55,6 +49,8 @@ def run_pipeline(
     board: str,
     target_exam: str,
 ):
+    configure_logging()
+    logger.info("Starting pipeline run")
     llm = load_text_llm()
     graph = build_graph(llm)
 
@@ -69,8 +65,9 @@ def run_pipeline(
     )
 
     # Run workflow
-    final_state: TutoringState = graph.invoke(initial_state)
+    final_state: TutoringState = ensure_state(graph.invoke(initial_state))
 
+    logger.info("Pipeline run complete")
     return {
         "questions": final_state.question_bank,
         "solutions": final_state.solver_output,
@@ -84,7 +81,7 @@ def run_pipeline(
 
 if __name__ == "__main__":
     result = run_pipeline(
-        image_path="input.png",
+        image_path=r"C:\Users\HP\PycharmProjects\AI-Tutoring-Question-Generator-Feature\data.png",
         class_level="11",
         board="CBSE",
         target_exam="NEET",

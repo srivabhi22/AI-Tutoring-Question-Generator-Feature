@@ -1,0 +1,48 @@
+2026-02-09 17:39:44,031 INFO __main__ Starting pipeline run
+2026-02-09 17:39:44,032 INFO core.llm_loader Loading text LLM
+2026-02-09 17:39:47,042 INFO core.graph Building LangGraph pipeline
+2026-02-09 17:39:47,052 INFO core.graph Entering multimodal node
+2026-02-09 17:39:47,052 INFO agents.multimodal.vision_agent Invoking multimodal model
+2026-02-09 17:39:48,994 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:40:39,411 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:40:39,539 INFO core.graph Multimodal grounding complete
+2026-02-09 17:40:39,541 INFO core.graph Entering planner node
+2026-02-09 17:40:39,542 INFO agents.planner.planner_agent Invoking planner LLM
+2026-02-09 17:40:39,546 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:40:49,270 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:40:49,403 INFO agents.planner.planner_agent Planner LLM response parsed
+2026-02-09 17:40:49,404 INFO core.graph Planning complete
+2026-02-09 17:40:49,406 INFO core.graph Entering executor node
+2026-02-09 17:40:49,407 INFO core.routing Executing 6 tasks
+2026-02-09 17:40:49,407 INFO core.routing Running task task₁ with agent content_analyzer
+2026-02-09 17:40:49,407 INFO agents.analysis.content_analyzer Running content analyzer
+2026-02-09 17:40:49,408 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:40:57,273 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:40:57,440 INFO core.routing Completed task task₁
+2026-02-09 17:40:57,441 INFO core.routing Running task task₂ with agent exam_pattern_analyst
+2026-02-09 17:40:57,442 INFO agents.analysis.exam_pattern_analyst Running exam pattern analyst
+2026-02-09 17:40:57,444 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:41:08,863 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:41:08,965 INFO core.routing Completed task task₂
+2026-02-09 17:41:08,966 INFO core.routing Running task task₃ with agent question_designer
+2026-02-09 17:41:08,967 INFO agents.design.question_designer Running question designer
+2026-02-09 17:41:08,968 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:41:25,639 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:41:25,748 INFO core.routing Completed task task₃
+2026-02-09 17:41:25,749 INFO core.routing Running task task₄ with agent question_generator
+2026-02-09 17:41:25,749 INFO agents.generation.question_generator Running question generator
+2026-02-09 17:41:25,750 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:41:45,755 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:41:45,927 INFO core.routing Completed task task₄
+2026-02-09 17:41:45,929 INFO core.routing Running task task₅ with agent solver
+2026-02-09 17:41:45,929 INFO agents.solving.solver_agent Running solver
+2026-02-09 17:41:45,931 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:42:13,961 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:42:14,357 INFO core.routing Completed task task₅
+2026-02-09 17:42:14,360 INFO core.routing Running task task₆ with agent evaluator
+2026-02-09 17:42:14,360 INFO agents.evaluation.evaluator_agent Running evaluator
+2026-02-09 17:42:14,361 INFO google_genai.models AFC is enabled with max remote calls: 10.
+2026-02-09 17:42:24,684 INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-09 17:42:24,777 INFO core.routing Completed task task₆
+2026-02-09 17:42:24,780 INFO core.routing Task execution complete
+2026-02-09 17:42:24,781 INFO __main__ Pipeline run complete

@@ -1,6 +1,8 @@
 markdown
 bs4
+pytest
 python-dotenv
+google
 pydantic
 pylatexenc
 langchain

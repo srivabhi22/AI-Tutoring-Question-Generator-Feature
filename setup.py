@@ -22,7 +22,7 @@ structure = {
     "agents/evaluation": ["__init__.py", "evaluator_agent.py"],
     "tools": ["__init__.py", "math_solver.py", "units.py"],
     "interfaces": ["__init__.py", "cli.py", "api.py"],
-    "tests": ["test_preprocessing.py", "test_planner.py", "test_agents.py", "test_graph.py"],
+    "tests": ["test_preprocessing.py", "test_planner.py", "test_execution_order.py", "test_graph_structure.py"],
 }
 
 

@@ -7,9 +7,13 @@ at what difficulty, and with what distractor logic?
 """
 
 
+import logging
 from typing import Dict, Any
 
+from core.state import TutoringState
 from preprocessing.text_cleaner import clean_llm_string
+
+logger = logging.getLogger(__name__)
 
 
 def build_question_design_prompt(
@@ -28,12 +32,12 @@ EXPECTED OUTPUT:
 {task["expected_output"]}
 
 ACADEMIC CONTEXT:
-Class: {planning_context["class"]}
-Board: {planning_context["board"]}
-Target Exam: {planning_context["target_exam"]}
-Subject: {planning_context["subject"]}
-Chapter: {planning_context["chapter"]}
-Sub-topic: {planning_context["sub_topic"]}
+Class: {planning_context.get("class", "")}
+Board: {planning_context.get("board", "")}
+Target Exam: {planning_context.get("target_exam", "")}
+Subject: {planning_context.get("subject", "")}
+Chapter: {planning_context.get("chapter", "")}
+Sub-topic: {planning_context.get("sub_topic", "")}
 
 EXTRACTED CONTENT:
 {extracted_content}
@@ -55,23 +59,24 @@ RULES:
 def question_designer_agent(
     llm,
     task: Dict[str, Any],
-    state: Dict[str, Any],
-) -> str:
+    state: TutoringState,
+) -> Dict[str, Any]:
     """
     Designs question intent, difficulty, and distractors.
     """
 
-    planning_context = state["plan"]["planning_context"]
+    planning_context = state.plan.planning_context
 
     extracted_content = ""
     exam_analysis = ""
 
-    for key, value in state["knowledge_base"].items():
+    for key, value in state.knowledge_base.items():
         if "extract" in key or "content" in key:
             extracted_content = value
         if "exam" in key:
             exam_analysis = value
 
+    logger.info("Running question designer")
     response = llm.invoke(
         build_question_design_prompt(
             task,
@@ -81,6 +86,8 @@ def question_designer_agent(
         )
     )
 
-    cleaned = clean_llm_string(response)
+    cleaned = clean_llm_string(response.content)
 
-    return cleaned
+    return {
+        "knowledge_base": {task["task_id"]: cleaned}
+    }

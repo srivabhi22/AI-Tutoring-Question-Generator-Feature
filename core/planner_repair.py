@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 """
-This file answers, given the planner’s raw output, how do we ensure it is safe, valid, and executable?
+Plan validation, repair, and fallback logic.
 """
 
+import logging
 from typing import Dict, Any, List
+
+from pydantic import BaseModel
 
 from config.agent_registry import AVAILABLE_AGENTS
 from core.state import PlannerOutput, UserProfile, GroundedContext
-from preprocessing.json_utils import JSONExtractionError
+
+logger = logging.getLogger(__name__)
+
+
+def _model_to_dict(plan: Any) -> Dict[str, Any]:
+    if isinstance(plan, BaseModel):
+        if hasattr(plan, "model_dump"):
+            return plan.model_dump()
+        return plan.dict()
+    if isinstance(plan, dict):
+        return plan
+    raise TypeError(f"Unsupported plan type: {type(plan)}")
 
 
 # -------------------------------------------------
@@ -22,21 +36,20 @@ def validate_plan_schema(plan: PlannerOutput) -> None:
         "execution_order",
     }
 
-    if not isinstance(plan, dict):
-        raise ValueError("Planner output is not a dictionary")
+    plan_dict = _model_to_dict(plan)
 
-    if set(plan.keys()) != required_top_keys:
+    if set(plan_dict.keys()) != required_top_keys:
         raise ValueError("Planner output has invalid top-level keys")
 
-    if not isinstance(plan["subtasks"], list):
+    if not isinstance(plan_dict["subtasks"], list):
         raise ValueError("subtasks must be a list")
 
-    if not isinstance(plan["execution_order"], list):
+    if not isinstance(plan_dict["execution_order"], list):
         raise ValueError("execution_order must be a list")
 
     task_ids = set()
 
-    for task in plan["subtasks"]:
+    for task in plan_dict["subtasks"]:
         for field in ["task_id", "purpose", "expected_output", "priority", "executed_by"]:
             if field not in task:
                 raise ValueError(f"Task missing required field: {field}")
@@ -47,7 +60,7 @@ def validate_plan_schema(plan: PlannerOutput) -> None:
 
         task_ids.add(task["task_id"])
 
-    for tid in plan["execution_order"]:
+    for tid in plan_dict["execution_order"]:
         if tid not in task_ids:
             raise ValueError(f"execution_order references unknown task_id: {tid}")
 
@@ -60,36 +73,32 @@ _AGENT_REPAIR_MAP = {
     "content analyzer": "content_analyzer",
     "content_analyzer_agent": "content_analyzer",
     "concept extractor": "content_analyzer",
-
     "exam analyst": "exam_pattern_analyst",
     "exam pattern agent": "exam_pattern_analyst",
-
     "question designer agent": "question_designer",
     "distractor agent": "question_designer",
-
     "generator": "question_generator",
     "question writer": "question_generator",
-
     "solution agent": "solver",
     "answer solver": "solver",
-
     "teacher": "evaluator",
     "examiner": "evaluator",
 }
 
 
 def repair_plan(plan: PlannerOutput) -> PlannerOutput:
+    plan_dict = _model_to_dict(plan)
     repaired_tasks: List[Dict[str, Any]] = []
 
-    for task in plan.get("subtasks", []):
-        agent = task.get("executed_by", "").lower().strip()
+    for task in plan_dict.get("subtasks", []):
+        agent = str(task.get("executed_by", "")).lower().strip()
 
         if agent not in AVAILABLE_AGENTS:
             agent = _AGENT_REPAIR_MAP.get(agent, agent)
 
         if agent not in AVAILABLE_AGENTS:
             # Heuristic fallback based on task_id keywords
-            tid = task.get("task_id", "").lower()
+            tid = str(task.get("task_id", "")).lower()
             if "extract" in tid or "analy" in tid:
                 agent = "content_analyzer"
             elif "exam" in tid:
@@ -106,18 +115,19 @@ def repair_plan(plan: PlannerOutput) -> PlannerOutput:
         task["executed_by"] = agent
         repaired_tasks.append(task)
 
-    plan["subtasks"] = repaired_tasks
+    plan_dict["subtasks"] = repaired_tasks
 
     # Repair execution order
     valid_ids = [t["task_id"] for t in repaired_tasks]
-    plan["execution_order"] = [
-        tid for tid in plan.get("execution_order", []) if tid in valid_ids
+    plan_dict["execution_order"] = [
+        tid for tid in plan_dict.get("execution_order", []) if tid in valid_ids
     ]
 
-    if not plan["execution_order"]:
-        plan["execution_order"] = valid_ids
+    if not plan_dict["execution_order"]:
+        plan_dict["execution_order"] = valid_ids
 
-    return plan
+    logger.warning("Planner output repaired")
+    return PlannerOutput(**plan_dict)
 
 
 # -------------------------------------------------
@@ -126,22 +136,21 @@ def repair_plan(plan: PlannerOutput) -> PlannerOutput:
 
 def fallback_plan(
     user_profile: UserProfile,
-    grounded_context: GroundedContext
+    grounded_context: GroundedContext,
 ) -> PlannerOutput:
+    meta = grounded_context.metadata
 
-    meta = grounded_context["metadata"]
-
-    return {
-        "planning_context": {
-            "class": user_profile["class_level"],
-            "board": user_profile["board"],
-            "target_exam": user_profile["target_exam"],
-            "subject": meta["subject"],
-            "chapter": meta["chapter"],
-            "sub_topic": meta["sub_topic"],
+    return PlannerOutput(
+        planning_context={
+            "class": user_profile.class_level,
+            "board": user_profile.board,
+            "target_exam": user_profile.target_exam,
+            "subject": meta.get("subject", ""),
+            "chapter": meta.get("chapter", ""),
+            "sub_topic": meta.get("sub_topic", ""),
         },
-        "objective": "generate_exam_aligned_questions",
-        "subtasks": [
+        objective="generate_exam_aligned_questions",
+        subtasks=[
             {
                 "task_id": "extract_core_content",
                 "purpose": "Extract key concepts and facts",
@@ -164,9 +173,9 @@ def fallback_plan(
                 "executed_by": "question_generator",
             },
         ],
-        "execution_order": [
+        execution_order=[
             "extract_core_content",
             "analyze_exam_alignment",
             "generate_questions",
         ],
-    }
+    )

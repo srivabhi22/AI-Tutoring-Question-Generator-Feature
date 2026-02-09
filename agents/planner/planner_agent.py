@@ -10,12 +10,15 @@ It must:
 3. Output a strict JSON plan
 """
 
+import logging
 from typing import Dict, Any
+
 from core.state import UserProfile, GroundedContext, PlannerOutput
 from config.planner_constraints import PLANNER_SYSTEM_PROMPT
-from preprocessing.json_utils import extract_json_from_llm
+from preprocessing.json_utils import extract_json_from_llm, JSONExtractionError
 from preprocessing.text_cleaner import clean_llm_json
 
+logger = logging.getLogger(__name__)
 
 def build_planner_input(
     user_profile: UserProfile,
@@ -27,17 +30,17 @@ def build_planner_input(
 
     return f"""
 USER PROFILE:
-Class: {user_profile["class_level"]}
-Board: {user_profile["board"]}
-Target Exam: {user_profile["target_exam"]}
+Class: {user_profile.class_level}
+Board: {user_profile.board}
+Target Exam: {user_profile.target_exam}
 
 GROUNDED CONTEXT:
-Subject: {grounded_context["metadata"]["subject"]}
-Chapter: {grounded_context["metadata"]["chapter"]}
-Sub-topic: {grounded_context["metadata"]["sub_topic"]}
+Subject: {grounded_context.metadata.get("subject", "")}
+Chapter: {grounded_context.metadata.get("chapter", "")}
+Sub-topic: {grounded_context.metadata.get("sub_topic", "")}
 
 Image Analysis:
-{grounded_context["image_analysis"]}
+{grounded_context.image_analysis}
 """
 
 
@@ -50,6 +53,7 @@ def planner_agent(
     Calls the planner LLM to produce a task execution plan.
     """
 
+    logger.info("Invoking planner LLM")
     response = llm.invoke(
         [
             {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
@@ -58,7 +62,11 @@ def planner_agent(
     )
 
     # Extract and clean JSON
-    parsed = extract_json_from_llm(response)
-    cleaned = clean_llm_json(parsed)
-
-    return cleaned
+    try:
+        parsed = extract_json_from_llm(response.content)
+        cleaned = clean_llm_json(parsed)
+        logger.info("Planner LLM response parsed")
+        return PlannerOutput(**cleaned)
+    except JSONExtractionError as exc:
+        logger.warning("Planner JSON parse failed: %s", exc)
+        raise

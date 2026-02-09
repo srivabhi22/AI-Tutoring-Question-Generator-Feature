@@ -5,9 +5,13 @@ Are these answers correct, complete, well-structured, and aligned with the board
 
 # agents/evaluation/evaluator_agent.py
 
+import logging
 from typing import Dict, Any
 from core.state import TutoringState, UserProfile, PlannerOutput, GroundedContext
+from preprocessing.json_utils import extract_json_from_llm, JSONExtractionError
 from preprocessing.text_cleaner import clean_llm_json
+
+logger = logging.getLogger(__name__)
 
 
 def build_evaluator_prompt(
@@ -19,10 +23,10 @@ def build_evaluator_prompt(
 You are an expert examiner and teacher.
 
 ACADEMIC CONTEXT:
-Class: {planning_context["class"]}
-Board: {planning_context["board"]}
-Target Exam: {planning_context["target_exam"]}
-Subject: {planning_context["subject"]}
+Class: {planning_context.get("class", "")}
+Board: {planning_context.get("board", "")}
+Target Exam: {planning_context.get("target_exam", "")}
+Subject: {planning_context.get("subject", "")}
 
 QUESTIONS:
 {question_bank}
@@ -40,12 +44,12 @@ RULES:
 - Do NOT include commentary outside evaluation
 
 OUTPUT FORMAT:
-{
+{{
   "overall_feedback": "",
   "mcq": [],
   "short_answer": [],
   "long_answer": []
-}
+}}
 """
 
 
@@ -58,10 +62,11 @@ def evaluator_agent(
     Evaluates solutions using exam-specific criteria.
     """
 
-    planning_context = state["plan"]["planning_context"]
-    question_bank = state["question_bank"]
-    solver_output = state["solver_output"]
+    planning_context = state.plan.planning_context
+    question_bank = state.question_bank
+    solver_output = state.solver_output
 
+    logger.info("Running evaluator")
     response = llm.invoke(
         build_evaluator_prompt(
             planning_context,
@@ -70,6 +75,34 @@ def evaluator_agent(
         )
     )
 
-    cleaned = clean_llm_json(response)
+    try:
+        parsed = extract_json_from_llm(response.content)
+        cleaned = clean_llm_json(parsed)
+    except JSONExtractionError as exc:
+        logger.warning("Evaluator JSON parse failed: %s", exc)
+        cleaned = {
+            "overall_feedback": "Evaluator output could not be parsed.",
+            "mcq": [],
+            "short_answer": [],
+            "long_answer": [],
+        }
 
-    return cleaned
+    if isinstance(cleaned, list):
+        cleaned = {
+            "overall_feedback": "Evaluator returned a list; wrapped for safety.",
+            "mcq": cleaned,
+            "short_answer": [],
+            "long_answer": [],
+        }
+    elif not isinstance(cleaned, dict):
+        cleaned = {
+            "overall_feedback": "Evaluator output was not a dict; coerced.",
+            "mcq": [],
+            "short_answer": [],
+            "long_answer": [],
+        }
+
+    return {
+        "evaluation": cleaned,
+        "knowledge_base": {task["task_id"]: cleaned},
+    }

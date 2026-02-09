@@ -13,12 +13,23 @@ This agent uses the Google Gemini multimodal API directly.
 
 # agents/multimodal/vision_agent.py
 
+import logging
 from typing import Dict, Any
 from google import genai
+from google.genai import types
 import os
 from core.state import UserProfile, GroundedContext
-from preprocessing.json_utils import extract_json_from_llm
+from preprocessing.json_utils import extract_json_from_llm, JSONExtractionError
 from preprocessing.text_cleaner import clean_llm_json
+
+logger = logging.getLogger(__name__)
+
+
+def _get_env_value(key: str) -> str:
+    value = os.getenv(key)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {key}")
+    return value
 
 
 def build_multimodal_prompt(user_profile: UserProfile) -> str:
@@ -48,9 +59,9 @@ OUTPUT FORMAT:
 }}
 
 CONTEXT:
-Student Class: {user_profile["class_level"]}
-Board: {user_profile["board"]}
-Target Exam: {user_profile["target_exam"]}
+Student Class: {user_profile.class_level}
+Board: {user_profile.board}
+Target Exam: {user_profile.target_exam}
 """
 
 
@@ -62,33 +73,35 @@ def multimodal_vision_agent(
     Uses Gemini 3 Flash Preview to ground educational content from an image.
     """
 
+    logger.info("Invoking multimodal model")
     prompt = build_multimodal_prompt(user_profile)
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = genai.Client(api_key=_get_env_value("GEMINI_API_KEY"))
     response = client.models.generate_content(
-        model=os.getenv("MULTIMODAL_MODEL_NAME"),
+        model=_get_env_value("MULTIMODAL_MODEL_NAME"),
         contents=[
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "inline_data": {
-                            "mime_type": "image/png",
-                            "data": image_base64,
-                        }
-                    },
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
-        ]
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(
+                        data=bytes.fromhex(image_base64)
+                        if image_base64.startswith("0x")
+                        else __import__("base64").b64decode(image_base64),
+                        mime_type="image/png",
+                    ),
+                    types.Part.from_text(text=prompt)
+                ],
+            )
+        ],
     )
 
     # Gemini SDK returns plain text
     raw_text = response.text
 
     # Extract and clean JSON safely
-    parsed = extract_json_from_llm(raw_text)
-    cleaned = clean_llm_json(parsed)
-
-    return cleaned
+    try:
+        parsed = extract_json_from_llm(raw_text)
+        cleaned = clean_llm_json(parsed)
+        return GroundedContext(**cleaned)
+    except JSONExtractionError as exc:
+        logger.warning("Multimodal JSON parse failed, returning empty context: %s", exc)
+        return GroundedContext(metadata={}, image_analysis=str(raw_text))

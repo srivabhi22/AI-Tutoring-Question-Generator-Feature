@@ -5,6 +5,9 @@ This file defines what information exists in the system at any point in time.
 """
 
 from typing import Dict, List, Any
+import json
+import os
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 
@@ -60,3 +63,35 @@ class TutoringState(BaseModel):
     question_bank: Dict[str, Any] = Field(default_factory=dict)
     solver_output: Dict[str, Any] = Field(default_factory=dict)
     evaluation: Dict[str, Any] = Field(default_factory=dict)
+
+
+def ensure_state(value: Any) -> "TutoringState":
+    if isinstance(value, TutoringState):
+        return value
+    if isinstance(value, dict):
+        return TutoringState(**value)
+    raise TypeError(f"Unsupported state type: {type(value)}")
+
+
+def save_state_snapshot(
+    state: "TutoringState",
+    stage: str,
+    *,
+    output_dir: str = "logs",
+    redact_image: bool = True,
+) -> str:
+    data = state.model_dump()
+    if redact_image:
+        data["image_base64"] = "[redacted]"
+
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "stage": stage,
+        "state": data,
+    }
+
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, "state.jsonl")
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    return path
