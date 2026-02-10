@@ -62,12 +62,7 @@ def exam_pattern_analyst_agent(
 
     planning_context = state.plan.planning_context
 
-    # Get output from content analyzer
-    extracted_content = ""
-    for key, value in state.knowledge_base.items():
-        if "extract" in key or "content" in key:
-            extracted_content = value
-            break
+    extracted_content = state.knowledge_base.get("content_analyzer", "")
 
     logger.info("Running exam pattern analyst")
     response = llm.invoke(

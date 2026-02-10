@@ -10,3 +10,7 @@ langchain-core
 langchain_community
 langchain-google-genai
 langgraph
+fastapi
+uvicorn
+httpx
+python-multipart

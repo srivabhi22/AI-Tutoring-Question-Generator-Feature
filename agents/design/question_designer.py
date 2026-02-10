@@ -67,14 +67,8 @@ def question_designer_agent(
 
     planning_context = state.plan.planning_context
 
-    extracted_content = ""
-    exam_analysis = ""
-
-    for key, value in state.knowledge_base.items():
-        if "extract" in key or "content" in key:
-            extracted_content = value
-        if "exam" in key:
-            exam_analysis = value
+    extracted_content = state.knowledge_base.get("content_analyzer", "")
+    exam_analysis = state.knowledge_base.get("exam_pattern_analyst", "")
 
     logger.info("Running question designer")
     response = llm.invoke(

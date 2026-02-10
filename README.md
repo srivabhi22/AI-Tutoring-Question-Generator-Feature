@@ -107,3 +107,52 @@ User-facing interfaces including CLI and future API endpoints.
 
 ### `/tests`
 Comprehensive test suite covering all major components.
+
+
+Command to start the fastapi app:
+```
+python -m uvicorn interfaces.api:app --reload --host 0.0.0.0 --port 8000
+```
+
+Command to access api endpoint /generate:
+```
+curl.exe -X POST "http://127.0.0.1:8000/generate" -F "class=11" -F "board=CBSE" -F "target_exam=NEET" -F "image=@data3.png"
+```
+
+## Containerization
+
+Build the image:
+```
+docker build -t ai-tutoring .
+```
+
+Run the API (loads `GEMINI_API_KEY` from `.env`):
+```
+docker run --rm -p 8000:8000 --env-file .env ai-tutoring
+```
+
+Or with Docker Compose:
+```
+docker compose up --build
+```
+
+Test in the container:
+```
+docker run --rm --env-file .env ai-tutoring pytest -q
+```
+After containerization:
+command to access /generate endpoint
+```
+curl.exe -X POST "http://127.0.0.1:8000/generate" -F "class=11" -F "board=CBSE" -F "target_exam=NEET" -F "image=@data3.png"
+```
+or more general command (if path has spaces)
+```
+curl.exe -X POST "http://127.0.0.1:8000/generate" -F "class=11" -F "board=CBSE" -F "target_exam=NEET" -F "image=@\"C:\Users\HP\My Images\data3.png\""
+```
+
+or more general command (if path does not have spaces)
+```
+curl.exe -X POST "http://127.0.0.1:8000/generate" -F "class=11" -F "board=CBSE" -F "target_exam=NEET" -F "image=@C:\Users\HP\Pictures\data3.png"
+```
+
+NOTE: If you want to restart a stopped container without recreating it, run it once without --rm, then use docker start <container_name> (you’d need to name it with --name).

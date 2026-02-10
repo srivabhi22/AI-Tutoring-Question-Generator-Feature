@@ -63,6 +63,15 @@ class TutoringState(BaseModel):
     question_bank: Dict[str, Any] = Field(default_factory=dict)
     solver_output: Dict[str, Any] = Field(default_factory=dict)
     evaluation: Dict[str, Any] = Field(default_factory=dict)
+    run_diagnostics: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "events": [],
+            "fallbacks": [],
+            "retries": {},
+            "timings_ms": {},
+            "output_counts": {},
+        }
+    )
 
 
 def ensure_state(value: Any) -> "TutoringState":

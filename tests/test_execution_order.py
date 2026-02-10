@@ -60,19 +60,19 @@ def test_execution_order(monkeypatch):
 
     def fake_content_analyzer(*args, **kwargs):
         execution_trace.append("content_analyzer")
-        return {"knowledge_base": {"extract": "content"}}
+        return {"knowledge_base": {"content_analyzer": "content"}}
 
     def fake_generator(*args, **kwargs):
         execution_trace.append("question_generator")
-        return {"question_bank": {"mcq": []}, "knowledge_base": {"generate": "qb"}}
+        return {"question_bank": {"mcq": []}, "knowledge_base": {"question_generator": "qb"}}
 
     def fake_solver(*args, **kwargs):
         execution_trace.append("solver")
-        return {"solver_output": {"mcq": []}, "knowledge_base": {"solve": "sol"}}
+        return {"solver_output": {"mcq": []}, "knowledge_base": {"solver": "sol"}}
 
     def fake_evaluator(*args, **kwargs):
         execution_trace.append("evaluator")
-        return {"evaluation": {"overall": "ok"}, "knowledge_base": {"evaluate": "eval"}}
+        return {"evaluation": {"overall": "ok"}, "knowledge_base": {"evaluator": "eval"}}
 
     monkeypatch.setattr("core.graph.multimodal_vision_agent", fake_multimodal)
     monkeypatch.setattr("core.graph.planner_agent", fake_planner)

@@ -17,5 +17,7 @@ def test_all_imports():
 
     # Tools
     from tools.math_solver import python_math
+    # Interfaces
+    from interfaces.api import app
 
     assert True

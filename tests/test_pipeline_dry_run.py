@@ -80,30 +80,30 @@ def test_pipeline_dry_run(monkeypatch):
         )
 
     def fake_content_analyzer(*args, **kwargs):
-        return {"knowledge_base": {"extract": "concepts"}}
+        return {"knowledge_base": {"content_analyzer": "concepts"}}
 
     def fake_exam_analyst(*args, **kwargs):
-        return {"knowledge_base": {"analyze_exam": "patterns"}}
+        return {"knowledge_base": {"exam_pattern_analyst": "patterns"}}
 
     def fake_designer(*args, **kwargs):
-        return {"knowledge_base": {"design_questions": "designs"}}
+        return {"knowledge_base": {"question_designer": "designs"}}
 
     def fake_generator(*args, **kwargs):
         return {
             "question_bank": {"mcq": [{"q": "Dummy", "answer": "A"}]},
-            "knowledge_base": {"generate": "questions"},
+            "knowledge_base": {"question_generator": "questions"},
         }
 
     def fake_solver(*args, **kwargs):
         return {
             "solver_output": {"mcq": [{"q": "Dummy", "solution": "Solved"}]},
-            "knowledge_base": {"solve": "solutions"},
+            "knowledge_base": {"solver": "solutions"},
         }
 
     def fake_evaluator(*args, **kwargs):
         return {
             "evaluation": {"overall_feedback": "OK"},
-            "knowledge_base": {"evaluate": "evaluation"},
+            "knowledge_base": {"evaluator": "evaluation"},
         }
 
     monkeypatch.setattr("core.graph.multimodal_vision_agent", fake_multimodal)
@@ -130,8 +130,8 @@ def test_pipeline_dry_run(monkeypatch):
     final_state = ensure_state(graph.invoke(initial_state))
 
     assert final_state.grounded_context.metadata["subject"] == "Chemistry"
-    assert "generate" in final_state.knowledge_base
-    assert "solve" in final_state.knowledge_base
-    assert "evaluate" in final_state.knowledge_base
+    assert "question_generator" in final_state.knowledge_base
+    assert "solver" in final_state.knowledge_base
+    assert "evaluator" in final_state.knowledge_base
     assert "mcq" in final_state.question_bank
     assert "mcq" in final_state.solver_output
