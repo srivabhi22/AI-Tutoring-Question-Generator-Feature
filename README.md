@@ -28,7 +28,7 @@ This project generates exam-aligned questions from a textbook image and a studen
 - `main.py` local run entry point
 
 ## Requirements
-- Python 3.11+ (3.11 used in Dockerfile)
+- Python 3.12 (3.12 used in Dockerfile)
 - A Google Gemini API key in `GEMINI_API_KEY`
 
 Install dependencies:
